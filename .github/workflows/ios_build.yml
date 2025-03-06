@@ -1,0 +1,45 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Setup iOS build
+        run: |
+          cd ios
+          pod install
+      
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
+      
+      - name: Archive iOS app
+        run: |
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload
+          zip -r app.ipa Payload
+      
+      - name: Upload IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-app
+          path: build/ios/iphoneos/app.ipa
+          retention-days: 7
