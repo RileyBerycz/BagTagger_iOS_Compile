@@ -285,9 +285,7 @@ class _LookupBagScreenState extends State<LookupBagScreen> {
           } else {
             // Add new item
             await widget.bagManager.addItemToBag(_currentCode!, item);
-            if (_foundItems == null) {
-              _foundItems = [];
-            }
+            _foundItems ??= [];
             setState(() {
               _foundItems!.add(item);
             });

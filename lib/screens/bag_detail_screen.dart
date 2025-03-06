@@ -8,11 +8,15 @@ import '../widgets/item_editor.dart';
 class BagDetailScreen extends StatefulWidget {
   final BagManager bagManager;
   final String bagCode;
+  final List<Item>? filteredItems;
+  final String? searchTerm;
 
   const BagDetailScreen({
     super.key, 
     required this.bagManager, 
-    required this.bagCode
+    required this.bagCode,
+    this.filteredItems,
+    this.searchTerm,
   });
 
   @override
@@ -23,13 +27,16 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
   List<Item>? _items;
   bool _isLoading = true;
   bool _isEditing = false;
-  TextEditingController _codeController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
+  bool _showingFilteredItems = false;
+  List<Item>? _allItems;
   
   @override
   void initState() {
     super.initState();
     _loadBag();
     _codeController.text = widget.bagCode;
+    _showingFilteredItems = widget.filteredItems != null && widget.filteredItems!.isNotEmpty;
   }
   
   @override
@@ -41,8 +48,15 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
   Future<void> _loadBag() async {
     setState(() => _isLoading = true);
     
-    // Get the items for this bag
-    _items = widget.bagManager.lookupBag(widget.bagCode);
+    // Always load all items to have them available
+    _allItems = widget.bagManager.lookupBag(widget.bagCode);
+    
+    // Set initial items based on whether we have filtered items
+    if (widget.filteredItems != null && widget.filteredItems!.isNotEmpty && _showingFilteredItems) {
+      _items = widget.filteredItems;
+    } else {
+      _items = _allItems;
+    }
     
     setState(() => _isLoading = false);
   }
@@ -71,7 +85,7 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
   Future<void> _showAddItemDialog() async {
     final result = await showDialog<Item>(
       context: context,
-      builder: (context) => ItemEditorDialog(),
+      builder: (context) => const ItemEditorDialog(),
     );
     
     if (result != null) {
@@ -122,12 +136,41 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
     }
   }
 
+  void _toggleFilter() {
+    setState(() {
+      _showingFilteredItems = !_showingFilteredItems;
+      if (_showingFilteredItems && widget.filteredItems != null) {
+        _items = widget.filteredItems;
+      } else {
+        _items = _allItems;
+      }
+    });
+  }
+
+Widget _highlightText(String text) {
+  // Simply return regular text without highlighting
+  return Text(
+    text, 
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bag Details'),
+        title: Text(_showingFilteredItems && widget.searchTerm != null 
+          ? 'Results for "${widget.searchTerm}"' 
+          : 'Bag Details'),
         actions: [
+          // Only show filter toggle if we have filtered items
+          if (widget.filteredItems != null && widget.filteredItems!.isNotEmpty)
+            IconButton(
+              icon: Icon(_showingFilteredItems ? Icons.filter_list_off : Icons.filter_list),
+              tooltip: _showingFilteredItems ? 'Show all items' : 'Show search results only',
+              onPressed: _toggleFilter,
+            ),
           IconButton(
             icon: Icon(_isEditing ? Icons.check : Icons.edit),
             onPressed: () {
@@ -208,15 +251,13 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
                                             ),
                                           )
                                         : const Icon(Icons.inventory, size: 40),
-                                    title: Text(item.name),
+                                    title: _highlightText(item.name),
                                     subtitle: item.descriptors.isNotEmpty
-                                        ? Text(
+                                        ? _highlightText(
                                             item.descriptors.entries
                                                 .take(2)
                                                 .map((e) => "${e.key}: ${e.value}")
                                                 .join(', '),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           )
                                         : null,
                                     trailing: Row(

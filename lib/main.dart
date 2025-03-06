@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Add this import
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'models/bag_data.dart';
 import 'screens/create_bag.dart';
 import 'screens/lookup_bag.dart';
 import 'screens/search_item.dart';
+import 'screens/manage_bags_screen.dart'; 
+import 'screens/settings_screen.dart';
 
 void main() async {
-  // Initialize FFI for Windows SQLite support
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize SQLite
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
   
-  // Ensure Flutter is initialized
-  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   
-  // Create and initialize the BagManager
+  // Initialize BagManager
   final bagManager = BagManager();
   
-  // Run the app with a FutureBuilder to handle loading
   runApp(MyApp(bagManager: bagManager));
 }
 
@@ -60,14 +67,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initializeApp() async {
     try {
       await widget.bagManager.loadBags();
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-        error = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          error = e.toString();
+        });
+      }
       print("Error initializing app: $e");
     }
   }
@@ -75,11 +86,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Scaffold(
+      return const Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
+            children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
               Text('Loading bags...'),
@@ -110,17 +121,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return DefaultTabController(
-      length: 3,
+      length: 5, // Increased from 3 to 5 for the new tabs
       child: Scaffold(
         appBar: AppBar(
           title: const Text('BagTagger'),
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
           bottom: const TabBar(
+            isScrollable: true, // Make tabs scrollable for smaller screens
             tabs: [
               Tab(icon: Icon(Icons.add), text: 'Create'),
               Tab(icon: Icon(Icons.search), text: 'Lookup'),
               Tab(icon: Icon(Icons.find_in_page), text: 'Search'),
+              Tab(icon: Icon(Icons.list), text: 'Manage Bags'),
+              Tab(icon: Icon(Icons.settings), text: 'Settings'),
             ],
             labelColor: Colors.white,
           ),
@@ -130,6 +144,8 @@ class _HomeScreenState extends State<HomeScreen> {
             CreateBagScreen(bagManager: widget.bagManager),
             LookupBagScreen(bagManager: widget.bagManager),
             SearchItemScreen(bagManager: widget.bagManager),
+            ManageBagsScreen(bagManager: widget.bagManager),
+            SettingsScreen(bagManager: widget.bagManager),
           ],
         ),
       ),

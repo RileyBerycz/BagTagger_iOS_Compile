@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/item_model.dart';
 
 class DatabaseHelper {
+  // Singleton pattern
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static DatabaseHelper get instance => _instance;
   
@@ -19,20 +21,20 @@ class DatabaseHelper {
   }
   
   Future<Database> _initDatabase() async {
-  try {
-    String path = join(await getDatabasesPath(), 'bag_tagger.db');
-    print("Database path: $path");
-    
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-    );
-  } catch (e) {
-    print("Error initializing database: $e");
-    rethrow;
+    try {
+      String path = join(await getDatabasesPath(), 'bag_tagger.db');
+      print("Database path: $path");
+      
+      return await openDatabase(
+        path,
+        version: 1,
+        onCreate: _onCreate,
+      );
+    } catch (e) {
+      print("Error initializing database: $e");
+      rethrow;
+    }
   }
-}
   
   Future<void> _onCreate(Database db, int version) async {
     // Bags table
@@ -78,12 +80,15 @@ class DatabaseHelper {
     return id;
   }
   
+  // Alias for insertBag with standard parameters
+  Future<void> createBag(String code) async {
+    await insertBag(code, name: null);
+  }
+  
   Future<void> updateBagId(String oldId, String newId) async {
     final db = await database;
     await db.transaction((txn) async {
-      // Update bag ID
       await txn.update('bags', {'id': newId}, where: 'id = ?', whereArgs: [oldId]);
-      // Update all items with this bag ID
       await txn.update('items', {'bag_id': newId}, where: 'bag_id = ?', whereArgs: [oldId]);
     });
   }
@@ -96,6 +101,15 @@ class DatabaseHelper {
   Future<void> deleteBag(String id) async {
     final db = await database;
     await db.delete('bags', where: 'id = ?', whereArgs: [id]);
+  }
+  
+  Future<void> clearAllBags() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('descriptors');
+      await txn.delete('items');
+      await txn.delete('bags');
+    });
   }
   
   // Item operations
@@ -117,6 +131,11 @@ class DatabaseHelper {
     }
     
     return itemId;
+  }
+  
+  // Alias for insertItem with standard parameters
+  Future<void> addItemToBag(String code, Item item) async {
+    await insertItem(code, item);
   }
   
   Future<void> updateItem(int id, Item item) async {

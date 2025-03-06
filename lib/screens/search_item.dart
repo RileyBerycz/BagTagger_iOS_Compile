@@ -182,12 +182,17 @@ class _SearchItemScreenState extends State<SearchItemScreen> {
   
   // Update the method
 void _navigateToBag(String bagCode) {
+  // Get the matched items for this specific bag
+  List<Item> matchedItems = _searchResults[bagCode] ?? [];
+  
   Navigator.push(
     context,
     MaterialPageRoute(
       builder: (context) => BagDetailScreen(
         bagManager: widget.bagManager,
         bagCode: bagCode,
+        filteredItems: matchedItems,
+        searchTerm: _searchController.text.trim(),
       ),
     ),
   );

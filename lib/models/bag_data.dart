@@ -17,7 +17,7 @@ class BagManager {
       // Initialize to empty map if loading fails
       bags = {};
       // Re-throw to let caller handle
-      throw e;
+      rethrow;
     }
   }
 
@@ -129,7 +129,95 @@ class BagManager {
 
   // Search for an item
   Future<Map<String, List<Item>>> searchItem(String searchTerm) async {
-    return await _db.searchItems(searchTerm);
+    final Map<String, List<Item>> results = {};
+    
+    if (searchTerm.trim().isEmpty) {
+      return results;
+    }
+    
+    // Split search term into individual words
+    final List<String> searchTerms = searchTerm.toLowerCase().split(' ')
+      .where((term) => term.isNotEmpty).toList();
+    
+    // Helper function to calculate string similarity (0-1)
+    double _calculateSimilarity(String s1, String s2) {
+      s1 = s1.toLowerCase();
+      s2 = s2.toLowerCase();
+      
+      // Exact match
+      if (s1 == s2) return 1.0;
+      
+      // Substring match
+      if (s1.contains(s2) || s2.contains(s1)) {
+        return 0.9;
+      }
+      
+      // Calculate Levenshtein distance for short strings
+      if (s1.length < 10 && s2.length < 10) {
+        // Simple approximation of similarity based on common chars
+        final Set<String> set1 = s1.split('').toSet();
+        final Set<String> set2 = s2.split('').toSet();
+        final double commonChars = set1.intersection(set2).length.toDouble();
+        return commonChars / (set1.union(set2).length.toDouble());
+      }
+      
+      return 0.0;
+    }
+    
+    // Check if a string is similar to any search term
+    bool _isStringSimilarToAnyTerm(String string, List<String> terms) {
+      for (final term in terms) {
+        if (_calculateSimilarity(string, term) > 0.7) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    // For each bag
+    bags.forEach((bagCode, items) {
+      final matchingItems = items.where((item) {
+        // Check item name against all search terms
+        if (searchTerms.any((term) => 
+            _isStringSimilarToAnyTerm(item.name.toLowerCase(), [term]))) {
+          return true;
+        }
+        
+        // Check each descriptor against all search terms
+        for (var entry in item.descriptors.entries) {
+          final key = entry.key.toLowerCase();
+          final value = entry.value.toLowerCase();
+          
+          if (searchTerms.any((term) => 
+              _isStringSimilarToAnyTerm(key, [term]) || 
+              _isStringSimilarToAnyTerm(value, [term]))) {
+            return true;
+          }
+          
+          // Check descriptor's full content against the whole search term
+          // This handles cases like "cheddar cheese" matching "Type: cheddar" and "Name: cheese"
+          if (_isStringSimilarToAnyTerm(key + " " + value, searchTerms) ||
+              searchTerms.length > 1 && 
+              searchTerms.every((term) => 
+                  (key + " " + value).toLowerCase().contains(term))) {
+            return true;
+          }
+        }
+        
+        // Also try with the complete search phrase
+        if (_isStringSimilarToAnyTerm(item.name.toLowerCase(), [searchTerm.toLowerCase()])) {
+          return true;
+        }
+        
+        return false;
+      }).toList();
+      
+      if (matchingItems.isNotEmpty) {
+        results[bagCode] = matchingItems;
+      }
+    });
+    
+    return results;
   }
   
   // Delete a bag
@@ -138,5 +226,26 @@ class BagManager {
     
     // Update in-memory cache
     bags.remove(code);
+  }
+
+  Future<void> replaceAllBags(Map<String, List<Item>> newBags) async {
+    // Clear database
+    await _db.clearAllBags();
+    
+    // Update with new bags
+    for (final entry in newBags.entries) {
+      final bagCode = entry.key;
+      final items = entry.value;
+      
+      // Add to database
+      await _db.createBag(bagCode);
+      for (final item in items) {
+        await _db.addItemToBag(bagCode, item);
+      }
+    }
+    
+    // Update in-memory bags
+    bags.clear();
+    bags.addAll(newBags);
   }
 }

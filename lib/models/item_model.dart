@@ -1,12 +1,14 @@
 class Item {
-  String name;
-  Map<String, String> descriptors;
-  String? image;
+  final String name;
+  final Map<String, String> descriptors;
+  final String? image;
+  final String id;
 
   Item({
     required this.name, 
-    this.descriptors = const {}, 
+    required this.descriptors, 
     this.image,
+    this.id = '',
   });
 
   // For JSON serialization
@@ -14,6 +16,7 @@ class Item {
     'name': name,
     'descriptors': descriptors,
     'image': image,
+    'id': id,
   };
 
   // From JSON deserialization
@@ -22,6 +25,7 @@ class Item {
       name: json['name'] as String,
       descriptors: Map<String, String>.from(json['descriptors'] ?? {}),
       image: json['image'] as String?,
+      id: json['id'] as String? ?? '',
     );
   }
 
@@ -30,5 +34,6 @@ class Item {
     name: name,
     descriptors: Map<String, String>.from(descriptors),
     image: image,
+    id: id,
   );
 }
