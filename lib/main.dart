@@ -8,6 +8,9 @@ import 'screens/lookup_bag.dart';
 import 'screens/search_item.dart';
 import 'screens/manage_bags_screen.dart'; 
 import 'screens/settings_screen.dart';
+import 'screens/account_screen.dart'; // Add this import
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,10 +19,12 @@ void main() async {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase only on supported platforms
+  if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
   
   // Initialize BagManager
   final bagManager = BagManager();
@@ -121,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return DefaultTabController(
-      length: 5, // Increased from 3 to 5 for the new tabs
+      length: 6, // Increased from 5 to 6 for the new tab
       child: Scaffold(
         appBar: AppBar(
           title: const Text('BagTagger'),
@@ -134,6 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Tab(icon: Icon(Icons.search), text: 'Lookup'),
               Tab(icon: Icon(Icons.find_in_page), text: 'Search'),
               Tab(icon: Icon(Icons.list), text: 'Manage Bags'),
+              Tab(icon: Icon(Icons.account_circle), text: 'Account'), // New tab
               Tab(icon: Icon(Icons.settings), text: 'Settings'),
             ],
             labelColor: Colors.white,
@@ -145,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
             LookupBagScreen(bagManager: widget.bagManager),
             SearchItemScreen(bagManager: widget.bagManager),
             ManageBagsScreen(bagManager: widget.bagManager),
+            AccountScreen(bagManager: widget.bagManager), // New screen
             SettingsScreen(bagManager: widget.bagManager),
           ],
         ),
