@@ -149,11 +149,52 @@ class _AccountScreenState extends State<AccountScreen> {
   }
   
   Future<void> _createAccount() async {
-    // Similar to _signIn
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      await _firebaseService.createAccount(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+      setState(() {});
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created successfully')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-  
+
   Future<void> _signOut() async {
-    // Sign out logic
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      await _firebaseService.signOut();
+      setState(() {});
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
   
   Future<void> _syncBags() async {
