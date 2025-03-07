@@ -140,7 +140,7 @@ class BagManager {
       .where((term) => term.isNotEmpty).toList();
     
     // Helper function to calculate string similarity (0-1)
-    double _calculateSimilarity(String s1, String s2) {
+    double calculateSimilarity(String s1, String s2) {
       s1 = s1.toLowerCase();
       s2 = s2.toLowerCase();
       
@@ -165,9 +165,9 @@ class BagManager {
     }
     
     // Check if a string is similar to any search term
-    bool _isStringSimilarToAnyTerm(String string, List<String> terms) {
+    bool isStringSimilarToAnyTerm(String string, List<String> terms) {
       for (final term in terms) {
-        if (_calculateSimilarity(string, term) > 0.7) {
+        if (calculateSimilarity(string, term) > 0.7) {
           return true;
         }
       }
@@ -179,7 +179,7 @@ class BagManager {
       final matchingItems = items.where((item) {
         // Check item name against all search terms
         if (searchTerms.any((term) => 
-            _isStringSimilarToAnyTerm(item.name.toLowerCase(), [term]))) {
+            isStringSimilarToAnyTerm(item.name.toLowerCase(), [term]))) {
           return true;
         }
         
@@ -189,23 +189,23 @@ class BagManager {
           final value = entry.value.toLowerCase();
           
           if (searchTerms.any((term) => 
-              _isStringSimilarToAnyTerm(key, [term]) || 
-              _isStringSimilarToAnyTerm(value, [term]))) {
+              isStringSimilarToAnyTerm(key, [term]) || 
+              isStringSimilarToAnyTerm(value, [term]))) {
             return true;
           }
           
           // Check descriptor's full content against the whole search term
           // This handles cases like "cheddar cheese" matching "Type: cheddar" and "Name: cheese"
-          if (_isStringSimilarToAnyTerm(key + " " + value, searchTerms) ||
+          if (isStringSimilarToAnyTerm("$key $value", searchTerms) ||
               searchTerms.length > 1 && 
               searchTerms.every((term) => 
-                  (key + " " + value).toLowerCase().contains(term))) {
+                  ("$key $value").toLowerCase().contains(term))) {
             return true;
           }
         }
         
         // Also try with the complete search phrase
-        if (_isStringSimilarToAnyTerm(item.name.toLowerCase(), [searchTerm.toLowerCase()])) {
+        if (isStringSimilarToAnyTerm(item.name.toLowerCase(), [searchTerm.toLowerCase()])) {
           return true;
         }
         
