@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/item_model.dart';
 
 class DatabaseHelper {
@@ -21,14 +23,25 @@ class DatabaseHelper {
   
   Future<Database> _initDatabase() async {
     try {
-      String path = join(await getDatabasesPath(), 'bag_tagger.db');
-      print("Database path: $path");
-      
-      return await openDatabase(
-        path,
-        version: 1,
-        onCreate: _onCreate,
-      );
+      // Get proper application support directory for persistent storage
+      Directory appDir;
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        // For desktop platforms, use the app documents directory
+        appDir = await getApplicationDocumentsDirectory();
+        // Create a specific subfolder for your app
+        final dbDir = Directory('${appDir.path}/BagTagger');
+        if (!await dbDir.exists()) {
+          await dbDir.create(recursive: true);
+        }
+        String path = join(dbDir.path, 'bag_tagger.db');
+        print("Database path: $path");
+        return await openDatabase(path, version: 1, onCreate: _onCreate);
+      } else {
+        // For mobile platforms, use the default path
+        String path = join(await getDatabasesPath(), 'bag_tagger.db');
+        print("Database path: $path");
+        return await openDatabase(path, version: 1, onCreate: _onCreate);
+      }
     } catch (e) {
       print("Error initializing database: $e");
       rethrow;
@@ -69,19 +82,23 @@ class DatabaseHelper {
   }
   
   // Bag operations
-  Future<String> insertBag(String id, {String? name}) async {
+  Future<String> insertBag(String id, {String? name, ConflictAlgorithm conflictAlgorithm = ConflictAlgorithm.abort}) async {
     final db = await database;
-    await db.insert('bags', {
-      'id': id,
-      'name': name ?? '',
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-    });
+    await db.insert(
+      'bags',
+      {
+        'id': id,
+        'name': name ?? '',
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: conflictAlgorithm
+    );
     return id;
   }
   
   // Alias for insertBag with standard parameters
-  Future<void> createBag(String code) async {
-    await insertBag(code, name: null);
+  Future<void> createBag(String code, {ConflictAlgorithm conflictAlgorithm = ConflictAlgorithm.abort}) async {
+    await insertBag(code, name: null, conflictAlgorithm: conflictAlgorithm);
   }
   
   Future<void> updateBagId(String oldId, String newId) async {
@@ -163,6 +180,26 @@ class DatabaseHelper {
   Future<void> deleteItem(int id) async {
     final db = await database;
     await db.delete('items', where: 'id = ?', whereArgs: [id]);
+  }
+  
+  Future<void> deleteAllItemsFromBag(String bagId) async {
+    final db = await database;
+    
+    // Get all items for this bag
+    final items = await db.query('items', 
+      columns: ['id'], 
+      where: 'bag_id = ?', 
+      whereArgs: [bagId]
+    );
+    
+    // Delete all descriptors and items in a transaction
+    await db.transaction((txn) async {
+      for (var item in items) {
+        int itemId = item['id'] as int;
+        await txn.delete('descriptors', where: 'item_id = ?', whereArgs: [itemId]);
+      }
+      await txn.delete('items', where: 'bag_id = ?', whereArgs: [bagId]);
+    });
   }
   
   // Querying data

@@ -1,4 +1,5 @@
 // lib/services/firebase_service.dart
+/*
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/bag_data.dart';
@@ -94,6 +95,56 @@ class FirebaseService {
   }
   
   // Helper methods for Item serialization since the class doesn't have toJson/fromJson
+  Map<String, dynamic> _itemToJson(Item item) {
+    return {
+      'name': item.name,
+      'descriptors': item.descriptors,
+      'image': item.image,
+    };
+  }
+  
+  Item _itemFromJson(Map<String, dynamic> json) {
+    return Item(
+      name: json['name'] as String,
+      descriptors: Map<String, String>.from(json['descriptors'] ?? {}),
+      image: json['image'] as String?,
+    );
+  }
+}
+*/
+
+// Stub implementation to satisfy imports
+import '../models/bag_data.dart';
+import '../models/item_model.dart';
+
+class FirebaseService {
+  // Singleton pattern
+  static final FirebaseService _instance = FirebaseService._internal();
+  factory FirebaseService() => _instance;
+  FirebaseService._internal();
+  
+  // Auth methods
+  bool get isSignedIn => false;
+  String? get userEmail => null;
+  String? get userId => null;
+  
+  // Stub sign in methods
+  Future<dynamic> signInWithEmail(String email, String password) async {
+    return null;
+  }
+  
+  Future<dynamic> createAccount(String email, String password) async {
+    return null;
+  }
+  
+  Future<void> signOut() async {}
+  
+  // Stub sync methods
+  Future<void> syncBags(BagManager bagManager) async {}
+  Future<void> uploadBags(BagManager bagManager) async {}
+  Future<Map<String, List<Item>>> downloadBags() async => {};
+  
+  // Stub helper methods
   Map<String, dynamic> _itemToJson(Item item) {
     return {
       'name': item.name,

@@ -16,7 +16,6 @@ class Item {
     'name': name,
     'descriptors': descriptors,
     'image': image,
-    'id': id,
   };
 
   // From JSON deserialization
@@ -25,7 +24,6 @@ class Item {
       name: json['name'] as String,
       descriptors: Map<String, String>.from(json['descriptors'] ?? {}),
       image: json['image'] as String?,
-      id: json['id'] as String? ?? '',
     );
   }
 

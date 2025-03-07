@@ -24,19 +24,29 @@ class BagDetailScreen extends StatefulWidget {
 }
 
 class _BagDetailScreenState extends State<BagDetailScreen> {
-  List<Item>? _items;
+  List<Item>? _allItems;
+  List<Item>? _displayedItems;
+  bool _isFiltered = false;
+  String? _currentSearchTerm;
   bool _isLoading = true;
   bool _isEditing = false;
   final TextEditingController _codeController = TextEditingController();
-  bool _showingFilteredItems = false;
-  List<Item>? _allItems;
   
   @override
   void initState() {
     super.initState();
     _loadBag();
     _codeController.text = widget.bagCode;
-    _showingFilteredItems = widget.filteredItems != null && widget.filteredItems!.isNotEmpty;
+    _allItems = widget.bagManager.lookupBag(widget.bagCode);
+    
+    // If filtered items are provided, use them as the initial display
+    if (widget.filteredItems != null && widget.filteredItems!.isNotEmpty) {
+      _displayedItems = widget.filteredItems;
+      _isFiltered = true;
+      _currentSearchTerm = widget.searchTerm;
+    } else {
+      _displayedItems = _allItems;
+    }
   }
   
   @override
@@ -52,10 +62,10 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
     _allItems = widget.bagManager.lookupBag(widget.bagCode);
     
     // Set initial items based on whether we have filtered items
-    if (widget.filteredItems != null && widget.filteredItems!.isNotEmpty && _showingFilteredItems) {
-      _items = widget.filteredItems;
+    if (widget.filteredItems != null && widget.filteredItems!.isNotEmpty && _isFiltered) {
+      _displayedItems = widget.filteredItems;
     } else {
-      _items = _allItems;
+      _displayedItems = _allItems;
     }
     
     setState(() => _isLoading = false);
@@ -95,9 +105,9 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
   }
   
   Future<void> _editItem(int index) async {
-    if (_items == null || index >= _items!.length) return;
+    if (_displayedItems == null || index >= _displayedItems!.length) return;
     
-    final item = _items![index];
+    final item = _displayedItems![index];
     final result = await showDialog<Item>(
       context: context,
       builder: (context) => ItemEditorDialog(initialItem: item),
@@ -110,7 +120,7 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
   }
   
   Future<void> _deleteItem(int index) async {
-    if (_items == null || index >= _items!.length) return;
+    if (_displayedItems == null || index >= _displayedItems!.length) return;
     
     final confirmed = await showDialog<bool>(
       context: context,
@@ -136,40 +146,51 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
     }
   }
 
-  void _toggleFilter() {
+  void _clearFilter() {
     setState(() {
-      _showingFilteredItems = !_showingFilteredItems;
-      if (_showingFilteredItems && widget.filteredItems != null) {
-        _items = widget.filteredItems;
-      } else {
-        _items = _allItems;
-      }
+      _displayedItems = _allItems;
+      _isFiltered = false;
+      _currentSearchTerm = null;
     });
   }
 
-Widget _highlightText(String text) {
-  // Simply return regular text without highlighting
-  return Text(
-    text, 
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-  );
-}
+  void _showFilterDialog() {
+    // Your existing filter dialog code
+    // When filter is applied, set:
+    // _displayedItems = filteredResults;
+    // _isFiltered = true;
+    // _currentSearchTerm = searchText;
+  }
+
+  Widget _highlightText(String text) {
+    // Simply return regular text without highlighting
+    return Text(
+      text, 
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showingFilteredItems && widget.searchTerm != null 
-          ? 'Results for "${widget.searchTerm}"' 
+        title: Text(_isFiltered && _currentSearchTerm != null 
+          ? 'Results for "${_currentSearchTerm}"' 
           : 'Bag Details'),
         actions: [
-          // Only show filter toggle if we have filtered items
-          if (widget.filteredItems != null && widget.filteredItems!.isNotEmpty)
+          // If we have a filter active, show a "Clear Filter" button
+          if (_isFiltered)
             IconButton(
-              icon: Icon(_showingFilteredItems ? Icons.filter_list_off : Icons.filter_list),
-              tooltip: _showingFilteredItems ? 'Show all items' : 'Show search results only',
-              onPressed: _toggleFilter,
+              icon: const Icon(Icons.filter_list_off),
+              tooltip: 'Clear filter',
+              onPressed: _clearFilter,
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              tooltip: 'Filter items',
+              onPressed: _showFilterDialog,
             ),
           IconButton(
             icon: Icon(_isEditing ? Icons.check : Icons.edit),
@@ -186,7 +207,7 @@ Widget _highlightText(String text) {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _items == null
+          : _displayedItems == null
               ? const Center(child: Text('Bag not found'))
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,12 +252,12 @@ Widget _highlightText(String text) {
                       ),
                     ),
                     Expanded(
-                      child: _items!.isEmpty
+                      child: _displayedItems!.isEmpty
                           ? const Center(child: Text('No items in this bag'))
                           : ListView.builder(
-                              itemCount: _items!.length,
+                              itemCount: _displayedItems!.length,
                               itemBuilder: (context, index) {
-                                final item = _items![index];
+                                final item = _displayedItems![index];
                                 return Card(
                                   margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                                   child: ListTile(
@@ -281,7 +302,7 @@ Widget _highlightText(String text) {
                     ),
                   ],
                 ),
-      floatingActionButton: _items != null && !_isLoading ? FloatingActionButton(
+      floatingActionButton: _displayedItems != null && !_isLoading ? FloatingActionButton(
         onPressed: _showAddItemDialog,
         child: const Icon(Icons.add),
       ) : null,
