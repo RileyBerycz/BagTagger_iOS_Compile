@@ -76,6 +76,15 @@ class _ItemEditorState extends State<ItemEditor> {
     });
   }
 
+  void _editDescriptor(String key, String value) {
+    _newKeyController.text = key;
+    _newValueController.text = value;
+    showDialog(
+      context: context,
+      builder: (context) => _buildEditDescriptorDialog(key),
+    );
+  }
+
   void _saveItem() {
     if (_formKey.currentState?.validate() ?? false) {
       final item = Item(
@@ -198,9 +207,19 @@ class _ItemEditorState extends State<ItemEditor> {
                       child: ListTile(
                         title: Text(entry.key),
                         subtitle: Text(entry.value),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _removeDescriptor(entry.key),
+                        onTap: () => _editDescriptor(entry.key, entry.value),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _editDescriptor(entry.key, entry.value),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () => _removeDescriptor(entry.key),
+                            ),
+                          ],
                         ),
                       ),
                     ))),
@@ -274,6 +293,56 @@ class _ItemEditorState extends State<ItemEditor> {
       ],
     );
   }
+
+  // Dialog for editing an existing descriptor
+  Widget _buildEditDescriptorDialog(String originalKey) {
+    return AlertDialog(
+      title: const Text('Edit Descriptor'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _newKeyController,
+            decoration: const InputDecoration(
+              labelText: 'Key',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16.0),
+          TextField(
+            controller: _newValueController,
+            decoration: const InputDecoration(
+              labelText: 'Value',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            final newKey = _newKeyController.text.trim();
+            final newValue = _newValueController.text.trim();
+            
+            if (newKey.isNotEmpty && newValue.isNotEmpty) {
+              setState(() {
+                // Remove the original key-value pair
+                _descriptors.remove(originalKey);
+                // Add the new key-value pair
+                _descriptors[newKey] = newValue;
+              });
+            }
+            Navigator.pop(context);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 // Dialog version used by BagDetailScreen
@@ -341,6 +410,76 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
       _descriptors.remove(key);
     });
   }
+
+  void _editDescriptor(String key, String value) {
+    _newKeyController.text = key;
+    _newValueController.text = value;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Edit Descriptor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _newKeyController,
+              decoration: const InputDecoration(
+                labelText: 'Key',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _newValueController,
+              decoration: const InputDecoration(
+                labelText: 'Value',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final newKey = _newKeyController.text.trim();
+                      final newValue = _newValueController.text.trim();
+                      
+                      if (newKey.isNotEmpty && newValue.isNotEmpty) {
+                        setState(() {
+                          // Remove the original key-value pair
+                          _descriptors.remove(key);
+                          // Add the new key-value pair
+                          _descriptors[newKey] = newValue;
+                        });
+                      }
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -379,18 +518,26 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
             
             const Text('Descriptors:'),
             const SizedBox(height: 8),
-            ..._descriptors.entries.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text('${entry.key}: ${entry.value}'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 20),
-                    onPressed: () => _removeDescriptor(entry.key),
-                  ),
-                ],
+            ..._descriptors.entries.map((entry) => Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                dense: true,
+                title: Text(entry.key),
+                subtitle: Text(entry.value),
+                onTap: () => _editDescriptor(entry.key, entry.value),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, size: 20),
+                      onPressed: () => _editDescriptor(entry.key, entry.value),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, size: 20),
+                      onPressed: () => _removeDescriptor(entry.key),
+                    ),
+                  ],
+                ),
               ),
             )).toList(),
             

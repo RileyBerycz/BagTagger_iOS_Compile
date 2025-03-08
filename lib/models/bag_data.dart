@@ -3,10 +3,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../data/database_helper.dart';
 import 'item_model.dart';
 
-class BagManager {
+class BagManager extends ChangeNotifier {
   static Database? _database;
   final DatabaseHelper _db = DatabaseHelper.instance;
   Map<String, List<Item>> bags = {};
@@ -162,22 +163,37 @@ class BagManager {
   }
   
   // Update item in bag
-  Future<void> updateItemInBag(String code, int index, Item newItem) async {
-    if (!bags.containsKey(code) || index >= bags[code]!.length) {
+  Future<void> updateItemInBag(String code, Item updatedItem, int index) async {
+    if (!bags.containsKey(code)) {
       return;
     }
     
-    // We need the item ID to update it
-    // This is a simplification - in the real implementation, 
-    // items should store their database IDs
-    var items = await _db.getItemsForBag(code);
-    if (index < items.length) {
-      // For simplicity, assuming indexes match
-      await _db.updateItem(index + 1, newItem); // Simplified - should use actual ID
+    int targetIndex = index;
+    
+    // If index is invalid, try to find the item by name
+    if (index < 0 || index >= bags[code]!.length) {
+      targetIndex = bags[code]!.indexWhere((item) => item.name == updatedItem.name);
+      if (targetIndex < 0) {
+        return; // Item not found
+      }
+    }
+    
+    // Get current item to update in database
+    final currentItem = bags[code]![targetIndex];
+    
+    // Update in database
+    try {
+      await _db.updateItemInBag(code, currentItem, updatedItem);
+    } catch (e) {
+      print("Error updating item in database: $e");
+      throw e;
     }
     
     // Update in-memory cache
-    bags[code]![index] = newItem;
+    bags[code]![targetIndex] = updatedItem;
+    
+    // Notify listeners
+    notifyListeners();
   }
 
   // Search for an item

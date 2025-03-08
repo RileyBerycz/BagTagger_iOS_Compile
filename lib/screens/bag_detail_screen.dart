@@ -4,6 +4,7 @@ import 'dart:io';
 import '../models/bag_data.dart';
 import '../models/item_model.dart';
 import '../widgets/item_editor.dart';
+import '../data/database_helper.dart';
 
 class BagDetailScreen extends StatefulWidget {
   final BagManager bagManager;
@@ -104,18 +105,39 @@ class _BagDetailScreenState extends State<BagDetailScreen> {
     }
   }
   
-  Future<void> _editItem(int index) async {
-    if (_displayedItems == null || index >= _displayedItems!.length) return;
-    
-    final item = _displayedItems![index];
-    final result = await showDialog<Item>(
+  void _editItem(int index) async {
+    final editedItem = await showDialog<Item>(
       context: context,
-      builder: (context) => ItemEditorDialog(initialItem: item),
+      builder: (context) => ItemEditorDialog(
+        initialItem: _displayedItems![index],
+      ),
     );
     
-    if (result != null) {
-      await widget.bagManager.updateItemInBag(widget.bagCode, index, result);
-      await _loadBag();
+    if (editedItem != null) {
+      // Update the item in the database
+      final bagId = widget.bagCode;
+      await DatabaseHelper.instance.updateItemInBag(
+        bagId, 
+        _displayedItems![index],  // original item
+        editedItem  // updated item
+      );
+      
+      // Update local data
+      setState(() {
+        // Update in the displayed items list
+        _displayedItems![index] = editedItem;
+        
+        // If using filtered items, also update the original list
+        if (_allItems != _displayedItems) {
+          final originalIndex = _allItems!.indexOf(_displayedItems![index]);
+          if (originalIndex >= 0) {
+            _allItems![originalIndex] = editedItem;
+          }
+        }
+      });
+      
+      // Update the BagManager's data
+      widget.bagManager.updateItemInBag(widget.bagCode, editedItem, index);
     }
   }
   

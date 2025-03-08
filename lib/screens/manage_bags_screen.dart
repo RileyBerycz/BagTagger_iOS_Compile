@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/bag_data.dart';
 import '../models/item_model.dart';
 import '../data/database_helper.dart';
@@ -148,13 +149,57 @@ class _ManageBagsScreenState extends State<ManageBagsScreen> {
           );
         }
       } else if (exportOption == 'file') {
-        // Save to file logic
-        // Implementation would depend on platform
-        // For simplicity, this is a stub - actual implementation would need platform-specific code
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('File saving not implemented in this demo')),
-          );
+        // Save to file implementation
+        try {
+          final timestamp = DateTime.now().toString().replaceAll(RegExp(r'[: .]'), '_');
+          final fileName = 'all_data_bag_tagger.db_$timestamp.json';
+          
+          // Platform-specific file saving
+          if (Platform.isAndroid || Platform.isIOS) {
+            // Mobile implementation
+            final directory = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+            final filePath = '${directory.path}/$fileName';
+            final file = File(filePath);
+            await file.writeAsString(jsonString);
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('File saved to: $filePath')),
+              );
+            }
+          } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+            // Desktop implementation
+            final saveResult = await FilePicker.platform.saveFile(
+              dialogTitle: 'Save Bag Data',
+              fileName: fileName,
+              allowedExtensions: ['json'],
+              type: FileType.custom,
+            );
+            
+            if (saveResult != null) {
+              final file = File(saveResult);
+              await file.writeAsString(jsonString);
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('File saved successfully')),
+                );
+              }
+            }
+          } else {
+            // Web or other platforms - not implemented
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('File saving not supported on this platform')),
+              );
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error saving file: $e')),
+            );
+          }
         }
       }
       // If 'cancel' or null, do nothing

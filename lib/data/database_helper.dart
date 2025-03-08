@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert'; // Added import for jsonEncode
 import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/item_model.dart';
+import 'package:flutter/foundation.dart'; // For debugPrint
 
 class DatabaseHelper {
   // Singleton pattern
@@ -34,16 +36,16 @@ class DatabaseHelper {
           await dbDir.create(recursive: true);
         }
         String path = join(dbDir.path, 'bag_tagger.db');
-        print("Database path: $path");
+        debugPrint("Database path: $path");
         return await openDatabase(path, version: 1, onCreate: _onCreate);
       } else {
         // For mobile platforms, use the default path
         String path = join(await getDatabasesPath(), 'bag_tagger.db');
-        print("Database path: $path");
+        debugPrint("Database path: $path");
         return await openDatabase(path, version: 1, onCreate: _onCreate);
       }
     } catch (e) {
-      print("Error initializing database: $e");
+      debugPrint("Error initializing database: $e");
       rethrow;
     }
   }
@@ -199,6 +201,48 @@ class DatabaseHelper {
         await txn.delete('descriptors', where: 'item_id = ?', whereArgs: [itemId]);
       }
       await txn.delete('items', where: 'bag_id = ?', whereArgs: [bagId]);
+    });
+  }
+  
+  Future<void> updateItemInBag(String bagId, Item oldItem, Item newItem) async {
+    final db = await database;
+    
+    // Find the item ID by name
+    final List<Map<String, dynamic>> result = await db.query(
+      'items',
+      columns: ['id'],
+      where: 'bag_id = ? AND name = ?',
+      whereArgs: [bagId, oldItem.name],
+      limit: 1
+    );
+    
+    if (result.isEmpty) {
+      // Item not found, insert it as new
+      await addItemToBag(bagId, newItem);
+      return;
+    }
+    
+    final itemId = result.first['id'] as int;
+    
+    // Update the item using a transaction
+    await db.transaction((txn) async {
+      // Update item basic info
+      await txn.update('items', {
+        'name': newItem.name,
+        'image': newItem.image,
+      }, where: 'id = ?', whereArgs: [itemId]);
+      
+      // Delete old descriptors
+      await txn.delete('descriptors', where: 'item_id = ?', whereArgs: [itemId]);
+      
+      // Insert new descriptors
+      for (var entry in newItem.descriptors.entries) {
+        await txn.insert('descriptors', {
+          'item_id': itemId,
+          'key': entry.key,
+          'value': entry.value,
+        });
+      }
     });
   }
   
